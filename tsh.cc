@@ -184,7 +184,7 @@ void eval(char *cmdline)
 //function, which checks whether the first command line argument is a built-in shell
 //command. If so, it interprets the command immediately and returns 1. Otherwise,
 //it returns 0" (CSAPP textbook).
-	if((bi = builtin_cmd(argv)) == 0)
+	if((bic = builtin_cmd(argv)) == 0)
 	{	// block SIGCHLD  signal
 		if(sigprocmask(SIG_BLOCK, &mask, NULL)) 
 			unix_error("eval: sigprocmask error");
@@ -215,7 +215,7 @@ void eval(char *cmdline)
 		if(!bg)
 		{	//init. waitfg if foreground process
 			waitfg(pid);
-		}-
+		}
 		else 
 		{	//background job prints the job?
 			printf("[%d] (%d) %s", pid2jid(pid), pid, cmdline);
@@ -237,22 +237,18 @@ void eval(char *cmdline)
 // string comparisons; however, the do_bgfg routine will need 
 // to use the argv array as well to look for a job number.
 
-//execute command and return 1 if command is built in job. Otherwise return 0
+//"After parsing the command line, the eval function calls the builtin_command
+//function, which checks whether the first command line argument is a built-in shell
+//command. If so, it interprets the command immediately and returns 1. Otherwise,
+//it returns 0" (CSAPP textbook).
+
 int builtin_cmd(char **argv) 
 {
   string cmd(argv[0]);
   //if user inputs "quit" then exit
   if(!strcmp(argv[0], "quit"))
 	{
-		if(checkjobs() == 1)
-		{	// 1) check for stopped/background jobs
-			printf("There are stopped jobs.");
-			return 1;
-		}
-		else
-		{	//2) quit exit the shell
 		exit(0);
-		}
 	}
    //if user inputs "jobs" call listjobs(jobs)
    else if(!strcmp(argv[0], "jobs"))
