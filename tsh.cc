@@ -145,6 +145,13 @@ int main(int argc, char **argv)
 // each child process must have a unique process group ID so that our
 // background children don't receive SIGINT (SIGTSTP) from the kernel
 // when we type ctrl-c (ctrl-z) at the keyboard.
+//In eval, the parent must use sigprocmask to block SIGCHLD signals before it forks the child,
+//and then unblock these signals, again using sigprocmask after it adds the child to the job list by
+//calling addjob. Since children inherit the blocked vectors of their parents, the child must be sure
+//to then unblock SIGCHLD signals before it execs the new program.
+//The parent needs to block the SIGCHLD signals in this way in order to avoid the race condition where
+//the child is reaped by sigchld handler (and thus removed from the job list) before the parent
+//calls addjob.
 //
 void eval(char *cmdline) 
 {
@@ -157,57 +164,66 @@ void eval(char *cmdline)
   //
   char *argv[MAXARGS];
   pid_t pid; //process ID
-  int bi, n; //return values
+  int bic, n; //return values bic=built in command, n=
   sigset_t mask; //Signal Mask for Blocking Signals
   //
   // The 'bg' variable is TRUE if the job should run
   // in background mode or FALSE if it should run in FG
   //
   int bg = parseline(cmdline, argv);
-  /* initialize empty signal set */
-	if(sigemptyset(&mask)) unix_error("eval: sigemptyset error");
-	/* add SIGCHLD signal to signal set */
-	if(sigaddset(&mask, SIGTSTP)) unix_error("eval: sigaddset error");
-	
+  	// initialize empty signal set
+	if(sigemptyset(&mask)) 
+		//unix_error is a helper function described in helper_rountines.cc
+		unix_error("eval: sigemptyset error");
+	// add SIGCHLD signal to signal set
+	if(sigaddset(&mask, SIGTSTP)) 
+		//unix_error is a helper function
+		unix_error("eval: sigaddset error");
+//"After parsing the command line, the eval function calls the builtin_command
+//function, which checks whether the first command line argument is a built-in shell
+//command. If so, it interprets the command immediately and returns 1. Otherwise,
+//it returns 0" (CSAPP textbook).
 	if((bi = builtin_cmd(argv)) == 0)
-	{	/* block SIGCHLD  signal */
-		if(sigprocmask(SIG_BLOCK, &mask, NULL)) unix_error("eval: sigprocmask error");
+	{	// block SIGCHLD  signal
+		if(sigprocmask(SIG_BLOCK, &mask, NULL)) 
+			unix_error("eval: sigprocmask error");
 	
-		/* create child process with fork command */
-		if((pid = fork()) < 0) unix_error("eval: fork error");
+		// create child process with fork command
+		if((pid = fork()) < 0) 
+			unix_error("eval: fork error");
 			
 		if(pid == 0)
-		{	/* child process sets new group pid and executes */
+		{	// child process sets new group pid and executes
 			if(setpgrp() == -1) unix_error("eval: setpgrp error");
 			
 			sigprocmask(SIG_UNBLOCK, &mask, NULL);
 		
 			if(execvp(argv[0], argv) < 0)
-			{	/* if execvp fails print message and exit */
+			{	// if execvp fails print message and exit
 				printf("%s: Command not found. (%d)\n", argv[0], pid);
 				exit(0);
 			}
 		}	
 		
-		/* Parent Process adds job to jobs list*/
+		// Parent Process adds job to jobs list
 		if((n = addjob(jobs, pid, (bg == 1 ? BG : FG), cmdline)) == 0) unix_error("eval: addjob error");
 			
-		/* then unblocks SIGCHLD */
+		//then unblocks SIGCHLD
 		sigprocmask(SIG_UNBLOCK, &mask, NULL);	
 			
 		if(!bg)
-		{	/* calls waitfg if foreground process */
+		{	//init. waitfg if foreground process
 			waitfg(pid);
-		}
+		}-
 		else 
-		{	/* background job prints job */
+		{	//background job prints the job?
 			printf("[%d] (%d) %s", pid2jid(pid), pid, cmdline);
 		}
 	}
-	/* bi == 1 */
+	// bi == 1
  
   if (argv[0] == NULL)  
-    return;   /* ignore empty lines */
+    return;   //ignore empty lines
   return;
 }
 
