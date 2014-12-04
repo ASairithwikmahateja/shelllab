@@ -145,8 +145,9 @@ int main(int argc, char **argv)
 // each child process must have a unique process group ID so that our
 // background children don't receive SIGINT (SIGTSTP) from the kernel
 // when we type ctrl-c (ctrl-z) at the keyboard.
-//In eval, the parent must use sigprocmask to block SIGCHLD signals before it forks the child,
-//and then unblock these signals, again using sigprocmask after it adds the child to the job list by
+
+//In eval, the parent must (1) use sigprocmask to block SIGCHLD signals before it (2) forks the child,
+//and then (3) unblock these signals, again using sigprocmask after it adds the child to the job list by
 //calling addjob. Since children inherit the blocked vectors of their parents, the child must be sure
 //to then unblock SIGCHLD signals before it execs the new program.
 //The parent needs to block the SIGCHLD signals in this way in order to avoid the race condition where
@@ -235,11 +236,41 @@ void eval(char *cmdline)
 // is a C string. We've cast this to a C++ string type to simplify
 // string comparisons; however, the do_bgfg routine will need 
 // to use the argv array as well to look for a job number.
-//
+
+//execute command and return 1 if command is built in job. Otherwise return 0
 int builtin_cmd(char **argv) 
 {
   string cmd(argv[0]);
-  return 0;     /* not a builtin command */
+  //if user inputs "quit" then exit
+  if(!strcmp(argv[0], "quit"))
+	{
+		if(checkjobs() == 1)
+		{	// 1) check for stopped/background jobs
+			printf("There are stopped jobs.");
+			return 1;
+		}
+		else
+		{	//2) quit exit the shell
+		exit(0);
+		}
+	}
+   //if user inputs "jobs" call listjobs(jobs)
+   else if(!strcmp(argv[0], "jobs"))
+	{
+		listjobs(jobs);
+		return 1;
+	}
+   //if user inputs "fg" or "bg" call do_bgfg
+   else if(!strcmp(argv[0], "fg") || !strcmp(argv[0], "bg"))
+	{
+		do_bgfg(argv);
+		return 1;
+	}
+   //if not a built in command, then return 0
+	else
+	{	//not a builtin command
+		return 0;
+	}
 }
 
 /////////////////////////////////////////////////////////////////////////////
