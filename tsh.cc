@@ -156,15 +156,58 @@ void eval(char *cmdline)
   // use below to launch a process.
   //
   char *argv[MAXARGS];
-
+  pid_t pid; //process ID
+  int bi, n; //return values
+  sigset_t mask; //Signal Mask for Blocking Signals
   //
   // The 'bg' variable is TRUE if the job should run
   // in background mode or FALSE if it should run in FG
   //
-  int bg = parseline(cmdline, argv); 
+  int bg = parseline(cmdline, argv);
+  /* initialize empty signal set */
+	if(sigemptyset(&mask)) unix_error("eval: sigemptyset error");
+	/* add SIGCHLD signal to signal set */
+	if(sigaddset(&mask, SIGTSTP)) unix_error("eval: sigaddset error");
+	
+	if((bi = builtin_cmd(argv)) == 0)
+	{	/* block SIGCHLD  signal */
+		if(sigprocmask(SIG_BLOCK, &mask, NULL)) unix_error("eval: sigprocmask error");
+	
+		/* create child process with fork command */
+		if((pid = fork()) < 0) unix_error("eval: fork error");
+			
+		if(pid == 0)
+		{	/* child process sets new group pid and executes */
+			if(setpgrp() == -1) unix_error("eval: setpgrp error");
+			
+			sigprocmask(SIG_UNBLOCK, &mask, NULL);
+		
+			if(execvp(argv[0], argv) < 0)
+			{	/* if execvp fails print message and exit */
+				printf("%s: Command not found. (%d)\n", argv[0], pid);
+				exit(0);
+			}
+		}	
+		
+		/* Parent Process adds job to jobs list*/
+		if((n = addjob(jobs, pid, (bg == 1 ? BG : FG), cmdline)) == 0) unix_error("eval: addjob error");
+			
+		/* then unblocks SIGCHLD */
+		sigprocmask(SIG_UNBLOCK, &mask, NULL);	
+			
+		if(!bg)
+		{	/* calls waitfg if foreground process */
+			waitfg(pid);
+		}
+		else 
+		{	/* background job prints job */
+			printf("[%d] (%d) %s", pid2jid(pid), pid, cmdline);
+		}
+	}
+	/* bi == 1 */
+ 
   if (argv[0] == NULL)  
     return;   /* ignore empty lines */
-
   return;
 }
 
