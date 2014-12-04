@@ -272,7 +272,8 @@ int builtin_cmd(char **argv)
 /////////////////////////////////////////////////////////////////////////////
 //
 // do_bgfg - Execute the builtin bg and fg commands
-//
+//bg=Change a stopped background job to a running background job.
+//fg=Change a stopped or running background job to a running in the foreground.
 void do_bgfg(char **argv) 
 {
   struct job_t *jobp=NULL;
@@ -313,7 +314,7 @@ void do_bgfg(char **argv)
   // your benefit.
   //
   string cmd(argv[0]);
-
+  
   return;
 }
 
@@ -323,6 +324,18 @@ void do_bgfg(char **argv)
 //
 void waitfg(pid_t pid)
 {
+	struct job_t *job; // holds job
+	
+	//if foreground job is done, return
+	if(!(job = getjobpid(jobs, pid)))
+	{	 
+		return;
+	}
+	// loops while state is FG and same process
+	while(job->state == FG && job->pid == pid)
+	{
+		sleep(1);
+	}
   return;
 }
 
