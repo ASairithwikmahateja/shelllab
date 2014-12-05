@@ -336,7 +336,7 @@ void waitfg(pid_t pid)
 	{
 		sleep(1);
 	}
-  return;
+		  return;
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -355,7 +355,43 @@ void waitfg(pid_t pid)
 //
 void sigchld_handler(int sig) 
 {
-  return;
+ int status; // status of job and jid
+	int jid; // jid of job
+	pid_t pid; // pid of job
+	struct job_t *job; // job holder
+	
+	
+	while((pid = waitpid(-1, &status, WNOHANG|WUNTRACED)) > 0)
+	{	//find the status of job signal
+		if(WIFSTOPPED(status))
+		{	//if stopped get job from jobs table
+			if(!(job = getjobpid(jobs, pid)))
+			{	//print message and return if cant find job
+				printf("(%d): No such process.\n", pid);
+				return;
+			}
+			//change state to stopped and print message
+			job->state = ST;
+			printf("[%d] Stopped %s\n", (job->jid), (job->cmdline));
+		}
+		else if(WIFSIGNALED(status))
+		{	//if signaled delete job and print message
+			jid = pid2jid(pid);
+			deletejob(jobs, pid);
+			printf("Job [%d] (%d) terminated by signal %d\n", jid, pid, WTERMSIG(status));
+		}
+		else if(WIFEXITED(status))
+		{	//if exited just delete job
+			jid = pid2jid(pid);
+			deletejob(jobs, pid);
+		}
+		else
+		{	//unix error, print message
+		unix_error("waitpid error");
+		}
+	}
+	
+	return;
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -368,7 +404,6 @@ void sigint_handler(int sig)
 {
   return;
 }
-
 /////////////////////////////////////////////////////////////////////////////
 //
 // sigtstp_handler - The kernel sends a SIGTSTP to the shell whenever
