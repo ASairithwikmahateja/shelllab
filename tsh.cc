@@ -355,7 +355,7 @@ void waitfg(pid_t pid)
 //
 void sigchld_handler(int sig) 
 {
- int status; // status of job and jid
+        int status; // status of job and jid
 	int jid; // jid of job
 	pid_t pid; // pid of job
 	struct job_t *job; // job holder
@@ -402,7 +402,19 @@ void sigchld_handler(int sig)
 //
 void sigint_handler(int sig) 
 {
-  return;
+  pid_t pid;
+	
+	if((pid = fgpid(jobs)) > 0)
+	{
+		if(kill(-pid, SIGINT) < 0) unix_error("sigint_handler: Kill Error.");
+	}
+	else
+	{	/* sent sigint to shell, print message about shell */
+		printf("shell's sigint_handler\n");
+		printf("shell pid = %d, fg_pid1 = %d, fg_pid2 = %d\n", getpid(), getpgrp(), getppid());
+		printf("sending SIGTSTP to process group %d\n", getpgrp());
+	}
+        return;
 }
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -412,7 +424,19 @@ void sigint_handler(int sig)
 //
 void sigtstp_handler(int sig) 
 {
-  return;
+	pid_t pid;
+	
+	if((pid = fgpid(jobs)) > 0)
+	{
+		if(kill(-pid, SIGTSTP) < 0) unix_error("sigstp_handler: Kill Error.");
+	}
+	else
+	{	/* sent sigtstp to shell, print message about shell */
+		printf("shell's sigstp_handler\n");
+		printf("shell pid = %d, fg_pid1 = %d, fg_pid2 = %d\n", getpid(), getpgrp(), getppid());
+		printf("sending SIGSTP to process group %d\n", getpgrp());
+	}
+        return;
 }
 
 /*********************
